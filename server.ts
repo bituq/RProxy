@@ -26,8 +26,9 @@ serve({
 			"/"
 		)}`;
 		const proxyHeaders = new Headers(req.headers);
-		proxyHeaders.delete('host'); 
-
+		proxyHeaders.set("User-Agent", "RProxy");
+		proxyHeaders.delete("roblox-id");
+		proxyHeaders.delete("host");
 		const makeRequest = async (attempt: number = 1): Promise<Response> => {
 			if (attempt > RETRIES) {
 				return new Response(
