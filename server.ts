@@ -26,6 +26,7 @@ serve({
 			"/"
 		)}`;
 		const proxyHeaders = new Headers(req.headers);
+		proxyHeaders.delete('host'); 
 
 		const makeRequest = async (attempt: number = 1): Promise<Response> => {
 			if (attempt > RETRIES) {
