@@ -2,7 +2,6 @@
 	"name": "Roblox Proxy",
 	"description": "A proxy for Roblox API requests, implemented in Node.js and deployed on Heroku.",
 	"repository": "https://github.com/bituq/RoProxy",
-	"stack": "heroku-20",
 	"keywords": ["node", "proxy", "roblox"],
 	"env": {
 		"PORT": {
