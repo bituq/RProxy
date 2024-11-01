@@ -1,6 +1,6 @@
-# Roblox Proxy
+# RProxy
 
-Roblox Proxy is a Bun application designed to act as a proxy for Roblox API requests. It is deployed on Heroku and provides a secure and efficient way to interact with Roblox's API.
+RProxy is a Bun application designed to act as a proxy for Roblox API requests. It is deployed on Heroku and provides a secure and efficient way to interact with Roblox's API.
 
 ## Features
 
