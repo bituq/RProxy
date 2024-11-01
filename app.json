@@ -30,7 +30,7 @@
 		}
 	],
 	"scripts": {
-		"postdeploy": "bun run build"
+		"postdeploy": "bun run server.ts"
 	},
 	"success_url": "/",
 	"log_runtime_metrics": true
