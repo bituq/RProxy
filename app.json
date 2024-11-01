@@ -1,0 +1,38 @@
+{
+	"name": "Roblox Proxy",
+	"description": "A proxy for Roblox API requests, implemented in Node.js and deployed on Heroku.",
+	"repository": "https://github.com/bituq/RoProxy",
+	"stack": "heroku-20",
+	"keywords": ["node", "proxy", "roblox"],
+	"env": {
+		"PORT": {
+			"description": "The port Heroku will use to run the server.",
+			"value": "3000"
+		},
+		"TIMEOUT": {
+			"description": "Timeout duration in seconds for each request made by the proxy.",
+			"value": "30",
+			"required": true
+		},
+		"RETRIES": {
+			"description": "Number of retry attempts if a request fails.",
+			"value": "3",
+			"required": true
+		},
+		"KEY": {
+			"description": "A required security key for validating incoming requests. Requests must include a matching PROXYKEY header.",
+			"generator": "secret",
+			"required": true
+		}
+	},
+	"buildpacks": [
+		{
+			"url": "https://github.com/jakeg/heroku-buildpack-bun"
+		}
+	],
+	"scripts": {
+		"postdeploy": "bun run build"
+	},
+	"success_url": "/",
+	"log_runtime_metrics": true
+}
