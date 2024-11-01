@@ -22,7 +22,7 @@ The application uses the following environment variables:
 
 To deploy this application on Heroku, click the button below:
 
-[![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/bituq/RoProxy)
+[![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/bituq/RProxy)
 
 ## Usage
 
