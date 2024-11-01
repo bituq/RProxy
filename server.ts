@@ -26,8 +26,6 @@ serve({
 			"/"
 		)}`;
 		const proxyHeaders = new Headers(req.headers);
-		proxyHeaders.set("User-Agent", "RoProxy");
-		proxyHeaders.delete("roblox-id");
 
 		const makeRequest = async (attempt: number = 1): Promise<Response> => {
 			if (attempt > RETRIES) {
@@ -49,7 +47,7 @@ serve({
 					status: proxyRes.status,
 					headers: proxyRes.headers,
 				});
-			} catch (error) {
+			} catch (error: any) {
 				console.error(`Attempt ${attempt} failed: ${error.message}`);
 				return makeRequest(attempt + 1);
 			}
