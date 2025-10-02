@@ -1,0 +1,12 @@
+{
+  "routes": [
+    { "handle": "filesystem" },
+    {
+      "src": "^/api/proxy(?:/(.*))?$",
+      "dest": "/api/proxy/[...path]?%5B...path%5D=$1",
+      "check": true,
+      "continue": true
+    }
+  ]
+}
+

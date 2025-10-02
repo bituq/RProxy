@@ -177,3 +177,4 @@ dist
 bun.lockb
 package-lock.json
 .vercel
+.vercel/output
