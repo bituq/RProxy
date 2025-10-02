@@ -2,6 +2,11 @@
   "name": "roproxy",
   "module": "server.ts",
   "type": "module",
+  "scripts": {
+    "dev": "bun run --hot server.ts",
+    "start": "bun run server.ts",
+    "build": "bun build server.ts --outdir dist --target bun"
+  },
   "devDependencies": {
     "@types/bun": "latest"
   },
