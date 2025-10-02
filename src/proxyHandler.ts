@@ -36,7 +36,7 @@ export async function handleProxyRequest(
 	const requestedHeaders =
 		req.headers.get("access-control-request-headers") ??
 		env.CORS_ALLOW_HEADERS ??
-		"Content-Type, Authorization, PROXYKEY, proxykey, X-ROBLOSECURITY, Cookie";
+		"Content-Type, Authorization, PROXYKEY, proxykey, X-ROBLOSECURITY, Cookie, x-bound-auth-token, x-csrf-token";
 	const exposeHeaders = env.CORS_EXPOSE_HEADERS ?? "Content-Type, Content-Length, ETag";
 	const maxAge = env.CORS_MAX_AGE ?? "600";
 
@@ -95,6 +95,13 @@ export async function handleProxyRequest(
 	const proxyHeaders = new Headers(req.headers);
 	const incomingUA = req.headers.get("user-agent") ?? DEFAULT_USER_AGENT;
 	proxyHeaders.set("user-agent", incomingUA);
+
+	const boundAuthToken = req.headers.get("x-bound-auth-token");
+	if (boundAuthToken) {
+		proxyHeaders.set("x-bound-auth-token", boundAuthToken);
+	} else {
+		proxyHeaders.delete("x-bound-auth-token");
+	}
 	const robloSecurityRaw = (req.headers.get("x-roblosecurity") ?? "").trim();
 	if (!robloSecurityRaw) {
 		return new Response(JSON.stringify({ error: "Missing X-ROBLOSECURITY header" }), {
@@ -111,19 +118,28 @@ export async function handleProxyRequest(
 		? robloSecurityRaw
 		: `.ROBLOSECURITY=${robloSecurityRaw}`;
 
+	const incomingCookie = req.headers.get("cookie") ?? "";
+	const extraCookieParts = incomingCookie
+		.split(";")
+		.map((part) => part.trim())
+		.filter(
+			(part) =>
+				part.length > 0 &&
+				!/^(\.ROBLOSECURITY\s*=)/i.test(part)
+			);
+	const combinedCookie = [normalizedRobloSecurity, ...extraCookieParts].join("; ");
+
 	[
 		"roblox-id",
 		"host",
 		"content-length",
 		"accept-encoding",
-		"origin",
-		"referer",
 		"cookie",
 		"x-roblosecurity",
 	].forEach(
 		(header) => proxyHeaders.delete(header)
 	);
-	proxyHeaders.set("cookie", normalizedRobloSecurity);
+	proxyHeaders.set("cookie", combinedCookie);
 
 	const method = req.method ?? "GET";
 	const shouldIncludeBody = method !== "GET" && method !== "HEAD";
@@ -143,6 +159,19 @@ export async function handleProxyRequest(
 				body,
 				signal: controller.signal,
 			});
+
+			if (
+				proxyRes.status === 403 &&
+				method !== "GET" &&
+				attempt <= retries
+			) {
+				const csrfToken = proxyRes.headers.get("x-csrf-token");
+				if (csrfToken && proxyHeaders.get("x-csrf-token") !== csrfToken) {
+					proxyHeaders.set("x-csrf-token", csrfToken);
+					return makeRequest(attempt + 1);
+				}
+			}
+
 			const responseHeaders = new Headers(proxyRes.headers);
 			responseHeaders.delete("set-cookie");
 			responseHeaders.delete("cookie");
