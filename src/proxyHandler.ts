@@ -1,5 +1,7 @@
 const DEFAULT_TIMEOUT = 30;
 const DEFAULT_RETRIES = 3;
+const DEFAULT_USER_AGENT =
+	"Mozilla/5.0 (compatible; RProxy/1.0; +https://github.com/bituq/RProxy)";
 
 type HandlerOptions = {
 	/** Amount of leading path segments to drop before extracting the Roblox subdomain. */
@@ -24,13 +26,17 @@ export async function handleProxyRequest(
 	const retries = Number(env.RETRIES ?? DEFAULT_RETRIES);
 	const key = env.KEY;
 	const requestOrigin = req.headers.get("origin");
-	const allowOrigin = env.CORS_ALLOW_ORIGIN ?? requestOrigin ?? "*";
+	const configuredOrigin = env.CORS_ALLOW_ORIGIN ?? requestOrigin ?? "*";
 	const allowCredentials = env.CORS_ALLOW_CREDENTIALS === "true";
+	const allowOrigin =
+		allowCredentials && configuredOrigin === "*"
+			? requestOrigin ?? "*"
+			: configuredOrigin;
 	const allowMethods = env.CORS_ALLOW_METHODS ?? "GET,HEAD,POST,PUT,PATCH,DELETE,OPTIONS";
 	const requestedHeaders =
 		req.headers.get("access-control-request-headers") ??
 		env.CORS_ALLOW_HEADERS ??
-		"Content-Type, Authorization, PROXYKEY, proxykey";
+		"Content-Type, Authorization, PROXYKEY, proxykey, X-ROBLOSECURITY, Cookie";
 	const exposeHeaders = env.CORS_EXPOSE_HEADERS ?? "Content-Type, Content-Length, ETag";
 	const maxAge = env.CORS_MAX_AGE ?? "600";
 
@@ -87,10 +93,37 @@ export async function handleProxyRequest(
 	}
 
 	const proxyHeaders = new Headers(req.headers);
-	proxyHeaders.set("user-agent", "RProxy");
-	["roblox-id", "host", "content-length", "accept-encoding"].forEach(
+	const incomingUA = req.headers.get("user-agent") ?? DEFAULT_USER_AGENT;
+	proxyHeaders.set("user-agent", incomingUA);
+	const robloSecurityRaw = (req.headers.get("x-roblosecurity") ?? "").trim();
+	if (!robloSecurityRaw) {
+		return new Response(JSON.stringify({ error: "Missing X-ROBLOSECURITY header" }), {
+			status: 400,
+			headers: (() => {
+				const headers = buildCorsHeaders();
+				headers.set("Content-Type", "application/json");
+				return headers;
+			})(),
+		});
+	}
+
+	const normalizedRobloSecurity = robloSecurityRaw.startsWith(".ROBLOSECURITY=")
+		? robloSecurityRaw
+		: `.ROBLOSECURITY=${robloSecurityRaw}`;
+
+	[
+		"roblox-id",
+		"host",
+		"content-length",
+		"accept-encoding",
+		"origin",
+		"referer",
+		"cookie",
+		"x-roblosecurity",
+	].forEach(
 		(header) => proxyHeaders.delete(header)
 	);
+	proxyHeaders.set("cookie", normalizedRobloSecurity);
 
 	const method = req.method ?? "GET";
 	const shouldIncludeBody = method !== "GET" && method !== "HEAD";
@@ -110,10 +143,13 @@ export async function handleProxyRequest(
 				body,
 				signal: controller.signal,
 			});
+			const responseHeaders = new Headers(proxyRes.headers);
+			responseHeaders.delete("set-cookie");
+			responseHeaders.delete("cookie");
 
 			return new Response(proxyRes.body, {
 				status: proxyRes.status,
-				headers: buildCorsHeaders(proxyRes.headers),
+				headers: buildCorsHeaders(responseHeaders),
 			});
 		} catch (error: any) {
 			if (attempt >= retries) {
