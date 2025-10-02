@@ -23,10 +23,43 @@ export async function handleProxyRequest(
 	const timeoutSeconds = Number(env.TIMEOUT ?? DEFAULT_TIMEOUT);
 	const retries = Number(env.RETRIES ?? DEFAULT_RETRIES);
 	const key = env.KEY;
+	const requestOrigin = req.headers.get("origin");
+	const allowOrigin = env.CORS_ALLOW_ORIGIN ?? requestOrigin ?? "*";
+	const allowCredentials = env.CORS_ALLOW_CREDENTIALS === "true";
+	const allowMethods = env.CORS_ALLOW_METHODS ?? "GET,HEAD,POST,PUT,PATCH,DELETE,OPTIONS";
+	const requestedHeaders =
+		req.headers.get("access-control-request-headers") ??
+		env.CORS_ALLOW_HEADERS ??
+		"Content-Type, Authorization, PROXYKEY, proxykey";
+	const exposeHeaders = env.CORS_EXPOSE_HEADERS ?? "Content-Type, Content-Length, ETag";
+	const maxAge = env.CORS_MAX_AGE ?? "600";
+
+	const buildCorsHeaders = (baseHeaders?: HeadersInit) => {
+		const headers = new Headers(baseHeaders ?? {});
+		headers.set("Access-Control-Allow-Origin", allowOrigin);
+		if (allowOrigin !== "*") {
+			const existingVary = headers.get("Vary");
+			headers.set("Vary", existingVary ? `${existingVary}, Origin` : "Origin");
+		}
+		headers.set("Access-Control-Allow-Methods", allowMethods);
+		headers.set("Access-Control-Allow-Headers", requestedHeaders);
+		headers.set("Access-Control-Max-Age", maxAge);
+		headers.set("Access-Control-Expose-Headers", exposeHeaders);
+		headers.set("Access-Control-Allow-Credentials", allowCredentials ? "true" : "false");
+		return headers;
+	};
+
+	if (req.method?.toUpperCase() === "OPTIONS") {
+		return new Response(null, {
+			status: 204,
+			headers: buildCorsHeaders(),
+		});
+	}
 
 	if (key && req.headers.get("proxykey") !== key) {
 		return new Response("Missing or invalid PROXYKEY header.", {
 			status: 407,
+			headers: buildCorsHeaders(),
 		});
 	}
 
@@ -41,7 +74,10 @@ export async function handleProxyRequest(
 
 	const [subdomain, ...pathParts] = segments;
 	if (!subdomain || pathParts.length === 0) {
-		return new Response("URL format invalid.", { status: 400 });
+		return new Response("URL format invalid.", {
+			status: 400,
+			headers: buildCorsHeaders(),
+		});
 	}
 
 	const targetPath = pathParts.join("/");
@@ -77,7 +113,7 @@ export async function handleProxyRequest(
 
 			return new Response(proxyRes.body, {
 				status: proxyRes.status,
-				headers: proxyRes.headers,
+				headers: buildCorsHeaders(proxyRes.headers),
 			});
 		} catch (error: any) {
 			if (attempt >= retries) {
@@ -86,7 +122,10 @@ export async function handleProxyRequest(
 						? "Proxy request timed out."
 						: "Proxy failed to connect. Please try again.";
 
-				return new Response(message, { status: 500 });
+				return new Response(message, {
+					status: 500,
+					headers: buildCorsHeaders(),
+				});
 			}
 
 			console.error(`Attempt ${attempt} failed: ${error?.message ?? error}`);
